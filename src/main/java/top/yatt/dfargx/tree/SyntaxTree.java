@@ -26,7 +26,11 @@ public class SyntaxTree {
         this.regex = regex;
         nodeList = new ArrayList<>();
         itemTerminated = false;
-        normalize();
+        try {
+            normalize();
+        } catch (NoSuchElementException e) {
+            throw new InvalidSyntaxException("Syntax error at end of regex");
+        }
 //        System.out.println(nodeList);
         shunt();
 //        System.out.println(nodeStack);
@@ -58,35 +62,32 @@ public class SyntaxTree {
     }
 
     private void normalize() {
-        int index = 0;
-        while (index < regex.length()) {
-            char ch = regex.charAt(index++);
+        Queue<Character> queue = new LinkedList<>();
+        for (char c : regex.toCharArray())
+            queue.offer(c);
+        while (!queue.isEmpty()) {
+            char ch = queue.remove();
             switch (ch) {
                 case '[': {
                     tryConcat();
                     List<Character> all = new ArrayList<>();
                     boolean isComplementarySet;
-                    if (regex.charAt(index) == '^') {
+                    if (queue.element() == '^') {
                         isComplementarySet = true;
-                        index++;
+                        queue.remove();
                     } else {
                         isComplementarySet = false;
                     }
-                    for (char next = regex.charAt(index++); next != ']'; next = regex.charAt(index++)) {
-                        if (next == '\\' || next == '.') {
-                            String token;
-                            if (next == '\\') {
-                                char nextNext = regex.charAt(index++);
-                                token = new String(new char[]{next, nextNext});
-                            } else {
-                                token = String.valueOf(next);
-                            }
-                            List<Character> tokenSet = CommonSets.interpretToken(token);
-                            all.addAll(tokenSet);
-                        } else {
-                            all.add(next);
-                        }
+                    while (queue.element() != ']') {
+                        ch = queue.remove();
+                        if (ch == '\\')
+                            all.addAll(CommonSets.interpretEscape(queue));
+                        else if (ch == '.')
+                            all.addAll(CommonSets.dotCollection());
+                        else
+                            all.add(ch);
                     }
+                    queue.remove();        // remove ]
                     char[] chSet = CommonSets.minimum(CommonSets.listToArray(all));
                     if (isComplementarySet) {
                         chSet = CommonSets.complementarySet(chSet);
@@ -104,37 +105,26 @@ public class SyntaxTree {
                     break;
                 }
                 case '{': {
-                    int least;
+                    int least = 0;
                     int most = -1;
-                    boolean deterministicLength = false;
                     StringBuilder sb = new StringBuilder();
-                    for (char next = regex.charAt(index++); ; ) {
-                        sb.append(next);
-                        next = regex.charAt(index++);
-                        if (next == '}') {
-                            deterministicLength = true;
-                            break;
-                        } else if (next == ',') {
-                            break;
-                        }
+                    while (Character.isDigit(queue.element())) {
+                        sb.append(queue.remove());
                     }
-                    least = Integer.parseInt(sb.toString());
-
-                    if (!deterministicLength) {
-                        char next = regex.charAt(index);
-                        if (next != '}') {
-                            sb = new StringBuilder();
-                            for (char nextNext = regex.charAt(index++); nextNext != '}'; nextNext = regex.charAt(index++)) {
-                                sb.append(nextNext);
-                            }
-                            if (sb.length() != 0) {
-                                most = Integer.parseInt(sb.toString());
-                            }
+                    if (sb.length() != 0)
+                        least = Integer.parseInt(sb.toString());
+                    char next = queue.remove();
+                    if (next == ',') {
+                        sb.setLength(0);
+                        while (Character.isDigit(queue.element())) {
+                            sb.append(queue.remove());
                         }
-                    } else {
-                        most = least;
+                        most = Integer.parseInt(sb.toString());
+                        next = queue.remove();
                     }
-
+                    if (next != '}') {
+                        throw new InvalidSyntaxException("Missing }");
+                    }
                     performMany(least, most);
                     itemTerminated = true;
                     break;
@@ -173,25 +163,26 @@ public class SyntaxTree {
                 default: {
                     tryConcat();
                     if (ch == '\\' || ch == '.') {
-                        String token;
+                        List<Character> tokenSet;
                         if (ch == '\\') {
-                            char next = regex.charAt(index++);
-                            token = new String(new char[]{ch, next});
+                            tokenSet = CommonSets.interpretEscape(queue);
                         } else {
-                            token = String.valueOf(ch);
+                            tokenSet = CommonSets.dotCollection();
                         }
-                        List<Character> tokenSet = CommonSets.interpretToken(token);
-                        nodeList.add(new LeftBracket());
-                        nodeList.add(new LChar(tokenSet.get(0)));
-                        for (int i = 1; i < tokenSet.size(); i++) {
-                            nodeList.add(new BOr());
-                            nodeList.add(new LChar(tokenSet.get(i)));
+                        if (tokenSet.size() == 1)
+                            nodeList.add(new LChar(tokenSet.get(0)));
+                        else {
+                            nodeList.add(new LeftBracket());
+                            nodeList.add(new LChar(tokenSet.get(0)));
+                            for (int i = 1; i < tokenSet.size(); i++) {
+                                nodeList.add(new BOr());
+                                nodeList.add(new LChar(tokenSet.get(i)));
+                            }
+                            nodeList.add(new RightBracket());
                         }
-                        nodeList.add(new RightBracket());
                     } else {
                         nodeList.add(new LChar(ch));
                     }
-
                     itemTerminated = true;
                     break;
                 }
@@ -282,7 +273,6 @@ public class SyntaxTree {
     private Node last() {
         return nodeList.get(nodeList.size() - 1);
     }
-
 
     private void tryConcat() {
         if (itemTerminated) {

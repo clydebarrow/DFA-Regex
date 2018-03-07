@@ -5,6 +5,7 @@ import top.yatt.dfargx.automata.DFA;
 import top.yatt.dfargx.automata.NFA;
 import top.yatt.dfargx.tree.SyntaxTree;
 import top.yatt.dfargx.tree.node.Node;
+import top.yatt.dfargx.util.InvalidSyntaxException;
 
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -45,6 +46,19 @@ public class RegexTest {
         String str = "192.168.0.255";
 
         testFor(regex, str);
+    }
+
+    @Test
+    public void testHex() {
+        String regex = "\\x61{4}u\\xAF{1,5}\\e\\cJ\\x00";
+        testFor(regex, "aaaau\u00AF\u00AF\u001B\n\u0000");
+        testFor(regex, "aaaau\u00AE\u00AF\u001B\n\u0000");
+        try {
+            new RegexMatcher("a{4");
+            Assert.fail("Exception not thrown.");
+        } catch (InvalidSyntaxException ignored) {
+
+        }
     }
 
     @Test

@@ -3,6 +3,7 @@ package top.yatt.dfargx.util;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Queue;
 
 /**
  * Created on 2015/5/9.
@@ -51,7 +52,7 @@ public class CommonSets {
 
     private static final List<Character> DOT_L = Collections.unmodifiableList(arrayToList(DOT));
 
-    public static final int ENCODING_LENGTH = 128; // ascii encoding length, to support unicode, change this num, and change above sets also.
+    public static final int ENCODING_LENGTH = 256; // ascii encoding length, to support unicode, change this num, and change above sets also.
 
     public static char[] listToArray(List<Character> charList) {
         char[] result = new char[charList.size()];
@@ -61,7 +62,11 @@ public class CommonSets {
         return result;
     }
 
-    public static List<Character> arrayToList(char[] charArr) {
+    public static List<Character> dotCollection() {
+        return DOT_L;
+    }
+
+    private static List<Character> arrayToList(char[] charArr) {
         List<Character> chList = new ArrayList<>(charArr.length);
         for (char ch : charArr) {
             chList.add(ch);
@@ -85,48 +90,62 @@ public class CommonSets {
         return bookToSet(book, true);
     }
 
-    public static List<Character> interpretToken(String token) {
+    // called with the queue pointing to the character after the \ character. Should consume all required
+    // characters from queue
+    public static List<Character> interpretEscape(Queue<Character> queue) {
         List<Character> result;
-        if (token.length() == 1) {
-            if (token.charAt(0) == '.') {
-                result = DOT_L;
-            } else {
-                result = Collections.singletonList(token.charAt(0));
-            }
-        } else if (token.length() != 2 || token.charAt(0) != '\\') {
-            throw new InvalidSyntaxException("Unrecognized token: " + token);
-        } else {
-            switch (token.charAt(1)) {
-                case 'n':
-                    result = Collections.singletonList('\n');
-                    break;
-                case 'r':
-                    result = Collections.singletonList('\r');
-                    break;
-                case 't':
-                    result = Collections.singletonList('\t');
-                    break;
-                case 'w':
-                    result = SLW_L;
-                    break;
-                case 'W':
-                    result = SUW_L;
-                    break;
-                case 's':
-                    result = SLS_L;
-                    break;
-                case 'S':
-                    result = SUS_L;
-                    break;
-                case 'd':
-                    result = SLD_L;
-                    break;
-                case 'D':
-                    result = SUD_L;
-                    break;
-                default:
-                    result = Collections.singletonList(token.charAt(1));
-            }
+        char ch = queue.remove();
+
+        switch (ch) {
+            case 'n':
+                result = Collections.singletonList('\n');
+                break;
+            case 'r':
+                result = Collections.singletonList('\r');
+                break;
+            case 't':
+                result = Collections.singletonList('\t');
+                break;
+            case 'w':
+                result = SLW_L;
+                break;
+            case 'W':
+                result = SUW_L;
+                break;
+            case 's':
+                result = SLS_L;
+                break;
+            case 'S':
+                result = SUS_L;
+                break;
+            case 'd':
+                result = SLD_L;
+                break;
+            case 'D':
+                result = SUD_L;
+                break;
+            // octal constants are not implemented, as the usual syntax is dodgy
+            // hex constants - two digit version only implemented
+            case 'x':
+                String sb = new String(new char[]{queue.remove(), queue.remove()});
+                result = Collections.singletonList((char)Integer.parseInt(sb, 16));
+                break;
+
+                // control characters - implemented cheaply
+            case 'c':
+                result = Collections.singletonList((char)(queue.remove() & 0x1F));
+                break;
+
+                // escape character
+            case 'e':
+                result = Collections.singletonList('\u001B');
+                break;
+
+                // TODO - word and line boundaries
+
+            default:
+                result = Collections.singletonList(ch);
+                break;
         }
         return result;
     }
