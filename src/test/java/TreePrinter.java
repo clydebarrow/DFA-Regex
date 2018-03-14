@@ -1,5 +1,5 @@
-import top.yatt.dfargx.tree.node.LNull;
-import top.yatt.dfargx.tree.node.Node;
+import com.controlj.regexc.tree.node.LNull;
+import com.controlj.regexc.tree.node.Node;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -101,7 +101,7 @@ public class TreePrinter {
     }
 
     private Node copyTree(Node root) {
-        Node newRoot = root.copy();
+        Node newRoot = Node.copy(root);
         if (root.hasLeft()) {
             newRoot.setLeft(copyTree(root.left()));
         }

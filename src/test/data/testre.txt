@@ -1,0 +1,15 @@
+%prefix test
+#include "hdr.h"
+int main(void) {
+
+}
+%names
+digit = [0-9]
+letter = [a-zA-Z]
+wordchar = (digit | letter)
+
+%rule
+letter wordchar* '\r'
+
+%rule
+'Z ' digit{4} '\r'
