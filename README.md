@@ -53,7 +53,7 @@ hexdigit{4} \r
 # if another rule is defined here it will be treated as an alternate, i.e. the entire RE is (rule1)|(rule2)|(rule3) etc.
 ````
 
-###Invocation
+### Invocation
 
 You can download a compiled jar from [here](https://github.com/clydebarrow/Regex-to-C/releases/download/v1.0/regex-c.jar). 
 Run from the command line:
@@ -63,7 +63,7 @@ Run from the command line:
 The generated code will comprise a header file called `lex_<prefix>.h` and a C file `lex_<prefix>.c` where `<prefix>` is the value
 specified in the input file via `%prefix`
 
-###RE Syntax
+### RE Syntax
 
 TODO
 
