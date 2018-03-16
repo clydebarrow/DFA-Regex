@@ -26,6 +26,8 @@ public class SyntaxTree {
         this.names = names;
         root = null;
         this.regex = regex;
+        if(regex.isEmpty())
+            throw new InvalidSyntaxException("empty regex");
         nodeList = new ArrayList<>();
         itemTerminated = false;
         try {
@@ -52,7 +54,7 @@ public class SyntaxTree {
         try {
             root = operatingStack.pop();
         } catch (EmptyStackException e) {
-            throw new InvalidSyntaxException(e);
+            throw new InvalidSyntaxException("Stack unexpectedly empty");
         }
         if (!operatingStack.isEmpty()) {
             throw new InvalidSyntaxException("Operating stack not empty");

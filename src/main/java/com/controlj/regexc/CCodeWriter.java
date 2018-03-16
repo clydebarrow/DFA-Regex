@@ -2,7 +2,7 @@ package com.controlj.regexc;
 
 import com.controlj.regexc.automata.DFA;
 import com.controlj.regexc.automata.DFAState;
-import com.controlj.regexc.automata.DFATransition;
+import com.controlj.regexc.automata.TransitionSet;
 import com.controlj.regexc.util.Actions;
 import com.controlj.regexc.util.CommonSets;
 
@@ -10,7 +10,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.*;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * Copyright (C) Control-J Pty. Ltd. ACN 103594190
@@ -32,6 +33,8 @@ public class CCodeWriter {
 
     public CCodeWriter(DFA dfa, File path, String prefix, Actions actions) {
         this.dfa = dfa;
+        if (path == null)
+            path = new File(".");
         this.path = path;
         this.prefix = prefix;
         accept = prefix + "_ACCEPT";
@@ -50,43 +53,72 @@ public class CCodeWriter {
         return "'" + val + "'";
     }
 
+    private void putCode(TransitionSet set, int thisId) throws IOException {
+        int nextId = set.getNext().getId();
+        if (!set.getActions().isEmpty()) {
+            format("                    {%s }\n", actions.getText(set.getActions()));
+        }
+        if (set.getNext().isAccept())
+            format("                    return %s;\n", accept);
+        else {
+            if (nextId == thisId + 1)
+                format("                    ++%s_state; // = %s_STATE_%d;\n", prefix, prefix, nextId);
+            else
+                format("                    %s_state = %s_STATE_%d;\n", prefix, prefix, nextId);
+            format("                    return %s;\n", contnue);
+        }
+    }
+
     private void putSwitch(DFAState state) throws IOException {
         if (state.isAccept())
             return;
-        Map<Character, DFATransition> map = state.getTransitionMap();
-        Set<Character> keySet = map.keySet();
-        List<Character> keyList = new ArrayList<>(keySet);
-        keyList.sort(Character::compareTo);
-        format("        case %s_STATE_%d:\n", prefix, state.getId());
-        format("            switch(token) {\n");
-        for (int i = 0; i != keyList.size(); i++) {
-            char c = keyList.get(i);
-            DFATransition trans = map.get(c);
-            int nextId = trans.getNext().getId();
-            char last = c;
-            format("                case %s:", charRep(c));
-            while (keySet.contains((char) (last + 1)) && map.get((char) (last + 1)).getNext().getId() == nextId) {
-                i++;
-                last++;
-                format(" case %s: ", charRep(last));
-            }
-            format("\n");
-            if (!trans.getActions().isEmpty()) {
-                format("                    {%s }\n", actions.getText(trans.getActions()));
-            }
-            if (trans.getNext().isAccept())
-                format("                    return %s;\n", accept);
-            else {
-                format("                    %s_state = %s_STATE_%d;\n", prefix, prefix, nextId);
-                format("                    return %s;\n", contnue);
+        int thisId = state.getId();
+        format("        case %s_STATE_%d:\n", prefix, thisId);
+        boolean first;
+        for (TransitionSet set : state.getTransitionSets()) {
+            // do ranges now for this transition target
+            List<TransitionSet.Range> ranges = set.getRanges();
+            if (!ranges.isEmpty()) {
+                first = true;
+                format("            if(");
+                for (TransitionSet.Range range : ranges) {
+                    if (!first)
+                        format("||\n                  ");
+                    first = false;
+                    format("token >= %s && token <= %s", charRep(range.first), charRep(range.last));
+                }
+                format(") {\n");
+                putCode(set, thisId);
+                format("            }\n");
             }
         }
-        if (keyList.size() != CommonSets.ENCODING_LENGTH) {
-            format("                default:\n");
-            format("                    %s_state = %s_STATE_%d;\n", prefix, prefix, dfa.getInitState());
-            format("                    return %s;\n", fail);
+        // now do any switching necessary
+        first = true;
+        for (TransitionSet set : state.getTransitionSets()) {
+            int cnt = 0;
+            for (char c : set.getPoints()) {
+                if (first)
+                    format("            switch(token) {");
+                first = false;
+                if ((cnt % 5) == 0)
+                    format("\n                ");
+                format(" case %s: ", charRep(c));
+                cnt++;
+            }
+            if (!first) {
+                format("\n");
+                putCode(set, thisId);
+            }
         }
-        format("            }\n");
+        if (state.getTransitionMap().size() != CommonSets.ENCODING_LENGTH) {
+            if (!first) {
+                format("                default:\n");
+                format("                    break;\n");
+                format("            }\n");
+            }
+            format("            return %s;\n", fail);
+        }
+        format("\n");
     }
 
     public void write() throws IOException {
@@ -96,9 +128,9 @@ public class CCodeWriter {
         writer = new BufferedWriter(new FileWriter(new File(path, filename + ".h")));
         format("typedef enum {%s, %s, %s} %s_action_t;\n", accept, contnue, fail, prefix);
         format("typedef enum {\n");
-        for(DFAState state : dfa.getDfaStates()) {
-            if(!state.isAccept())
-                format("    %s_STATE_%d,\n", prefix, state.getId());
+        for (DFAState state : dfa.getDfaStates()) {
+            if (!state.isAccept())
+                format("    %s_STATE_%d = %d,\n", prefix, state.getId(), state.getId());
         }
         format("} %s_state_t;\n", prefix);
         format("extern %s_action_t %s_lex(unsigned char token);\n", prefix, prefix);

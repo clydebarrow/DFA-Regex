@@ -84,4 +84,8 @@ public class DFATransition {
     public void addActions(Collection<Integer> actions) {
         this.actions.addAll(actions);
     }
+
+    public boolean matchingTarget(DFATransition trans) {
+        return accept == trans.accept && next == trans.next && trans.actions.equals(actions);
+    }
 }

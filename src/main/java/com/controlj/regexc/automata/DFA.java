@@ -192,14 +192,16 @@ public class DFA {
         Set<DFAState> stateSet = new HashSet<>();
         addUsed(initialState, stateSet);
         dfaStates = new ArrayList<>();
-        // make the initial state 0 for convenience
-        dfaStates.add(initialState);
-        initialState.setId(0);
+        Set<DFAState> added = new LinkedHashSet<>();
+        addNonAccept(initialState, added);
+        // now add in the accept states, at the end
         for (DFAState state : stateSet) {
-            if (state != initialState) {
-                state.setId(dfaStates.size());
-                dfaStates.add(state);
-            }
+            if (!added.contains(state))
+                added.add(state);
+        }
+        dfaStates = new ArrayList<>(added);
+        for(int i = 0 ; i != dfaStates.size() ; i++) {
+            dfaStates.get(i).setId(i);
         }
         rejectState = dfaStates.size();
         transitionTable = new int[rejectState][];
@@ -211,6 +213,15 @@ public class DFA {
             for (Map.Entry<Character, DFATransition> transition : state.getTransitionMap().entrySet()) {
                 transitionTable[state.getId()][transition.getKey()] = transition.getValue().getNextId();
             }
+        }
+    }
+
+    private void addNonAccept(DFAState state, Set<DFAState> states) {
+        if (state.isAccept() || states.contains(state))
+            return;
+        states.add(state);
+        for (DFATransition transition : state.getTransitionMap().values()) {
+            addNonAccept(transition.getNext(), states);
         }
     }
 

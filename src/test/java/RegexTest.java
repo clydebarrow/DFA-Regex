@@ -1,16 +1,15 @@
 import com.controlj.regexc.CCodeWriter;
-import com.controlj.regexc.util.Actions;
-import org.junit.Assert;
-import org.junit.Test;
 import com.controlj.regexc.RegexMatcher;
 import com.controlj.regexc.automata.DFA;
 import com.controlj.regexc.automata.NFA;
 import com.controlj.regexc.tree.SyntaxTree;
 import com.controlj.regexc.tree.node.Node;
+import com.controlj.regexc.util.Actions;
 import com.controlj.regexc.util.InvalidSyntaxException;
+import org.junit.Assert;
+import org.junit.Test;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -37,9 +36,9 @@ public class RegexTest {
                     "        *ptr++ = c;\n" +
                     "    test_action_t action = test_lex((unsigned char)c);\n" +
                     "    if(c <= ' ')\n" +
-                    "        printf(\"state %d: %02x - > state %d, action %d\\n\", prev, c, test_state, action);\n" +
+                    "        fprintf(stderr, \"state %d: %02x - > state %d, action %d\\n\", prev, c, test_state, action);\n" +
                     "    else\n" +
-                    "        printf(\"state %d: '%c' - > state %d, action %d\\n\", prev, c, test_state, action);\n" +
+                    "        fprintf(stderr, \"state %d: '%c' - > state %d, action %d\\n\", prev, c, test_state, action);\n" +
                     "    return action;" +
                     "}\n" +
                     "\n" +
@@ -51,16 +50,32 @@ public class RegexTest {
                     "        case test_CONTINUE:\n" +
                     "            continue;\n" +
                     "        case test_FAIL:\n" +
-                    "            printf(\"match failed at %s!\\n\", data);\n" +
+                    "            fprintf(stderr, \"match failed at %s!\\n\", data);\n" +
                     "            exit(1);\n" +
                     "        case test_ACCEPT:\n" +
-                    "            printf(\"match succeeded at %s - continuing\\n\", data);\n" +
+                    "            fprintf(stderr, \"match succeeded at %s - continuing\\n\", data);\n" +
                     "            test_reset();\n" +
                     "            continue;\n" +
                     "    }\n" +
                     "    exit(0);\n" +
                     "}";
+    private static final String TEMPPATH = "src/test/temp";
 
+    private static void runCmd(String cmd) throws IOException, InterruptedException {
+        Process process = Runtime.getRuntime().exec(cmd);
+        InputStream stderr = process.getErrorStream();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(stderr));
+        for (; ; ) {
+            String s = reader.readLine();
+            if (s == null)
+                break;
+            System.err.println(s);
+        }
+
+        process.waitFor();
+        Assert.assertEquals(0, process.exitValue());
+
+    }
     //"([ab]([^cd]*\\w+(abc|abcd){2,5})+)?.*"
     @Test
     public void testProcessing() {
@@ -82,16 +97,26 @@ public class RegexTest {
         System.out.println(dfa.toString());
         Actions actions = new Actions();
         actions.add("ptr = buffer;");
-        actions.add("*ptr = 0; printf(\"got element %s\\n\", buffer); ptr = buffer;");
-        actions.add("*ptr = 0; printf(\"got checksum %s\\n\", buffer);");
-        actions.add("printf(\"action complete\\n\");");
+        actions.add("*ptr = 0; fprintf(stderr, \"got element %s\\n\", buffer); ptr = buffer;");
+        actions.add("*ptr = 0; fprintf(stderr, \"got checksum %s\\n\", buffer);");
+        actions.add("fprintf(stderr, \"action complete\\n\");");
         actions.setHeader(HEADER);
-        CCodeWriter codeWriter = new CCodeWriter(dfa, new File("temp/"), "test", actions);
+        CCodeWriter codeWriter = new CCodeWriter(dfa, new File(TEMPPATH), "test", actions);
         try {
+
+            File aout = new File(TEMPPATH + "/a.out");
+            if(aout.exists())
+                //noinspection ResultOfMethodCallIgnored
+                aout.delete();
             codeWriter.write();
+            runCmd("clang -o " + TEMPPATH + "/a.out " + TEMPPATH + "/lex_test.c");
+            runCmd(TEMPPATH + "/a.out");
         } catch (IOException e) {
             e.printStackTrace();
             Assert.fail("File error.");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Assert.fail("Execution of state machine code failed");
         }
     }
 

@@ -1,12 +1,11 @@
 package com.controlj.regexc;
 
 import com.controlj.regexc.automata.DFA;
+import com.controlj.regexc.automata.NFA;
+import com.controlj.regexc.tree.SyntaxTree;
 import com.controlj.regexc.util.Actions;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.LineNumberReader;
+import java.io.*;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.ArrayList;
@@ -28,7 +27,7 @@ public class Rex {
     public static final String RULE = "%rule";
     public static final String NAMES = "%names";
     private final String source;
-    private Actions actions;
+    private Actions actions = new Actions();
     private DFA dfa;
     private String prefix;
     private LineNumberReader reader;
@@ -85,6 +84,22 @@ public class Rex {
     }
 
     public DFA getDfa() {
+        if(dfa == null) {
+            StringBuilder builder = new StringBuilder();
+            boolean first = true;
+            for(String rule : rules) {
+                if(!first)
+                    builder.append('|');
+                first = false;
+                builder.append('(');
+                builder.append(rule);
+                builder.append(')');
+            }
+            SyntaxTree tree = new SyntaxTree(builder.toString(), names);
+            NFA nfa = new NFA(tree.getRoot());
+            System.out.println("NFA has " + nfa.getStateList().size() + " states");
+            dfa = new DFA(nfa.getStateList());
+        }
         return dfa;
     }
 
@@ -138,7 +153,8 @@ public class Rex {
                         reBuilder.append((char) ('\uE000' + actions.add(sb.toString())));
                         sb = reBuilder;
                     }
-                }
+                } else
+                    actionBuilder.append(c);
             } else
                 reBuilder.append(c);
         }
@@ -179,6 +195,11 @@ public class Rex {
             if (s.startsWith(NAMES)) {
                 for (; ; ) {
                     s = reader.readLine();
+                    if(s == null)
+                        break;
+                    s = s.trim();
+                    if(s.isEmpty())
+                        continue;
                     if (s.startsWith(RULE))
                         break;
                     Matcher matcher = namePattern.matcher(s.trim());
@@ -188,8 +209,8 @@ public class Rex {
                         error("Syntax error in name definition");
                 }
             }
+            reBuilder.setLength(0);
             for (; ; ) {
-                reBuilder.setLength(0);
                 s = reader.readLine();
                 if (s == null)
                     break;
@@ -198,9 +219,31 @@ public class Rex {
                 else
                     addLine(s);
             }
+            if(reBuilder.length() != 0)
+                addRule();
 
         } finally {
             reader.close();
         }
+    }
+
+    static public void main(String args[]) {
+        if(args.length == 0) {
+            System.err.println("Usage: rex <input_file>");
+            System.exit(1);
+        }
+        try {
+            File inputFile = new File(args[0]);
+            InputStream stream = new FileInputStream(inputFile);
+            Rex rex = new Rex(args[0], stream);
+            rex.read();
+            System.out.println(rex.getDfa().toString());
+            CCodeWriter writer = new CCodeWriter(rex.getDfa(), inputFile.getParentFile(), rex.getPrefix(), rex.getActions());
+            writer.write();
+            System.exit(0);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.exit(2);
     }
 }
