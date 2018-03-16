@@ -54,6 +54,8 @@ hexdigit{4} \r
 ````
 
 ###Invocation
+
+You can download a compiled jar from [here](https://github.com/clydebarrow/Regex-to-C/releases/download/v1.0/regex-c.jar). 
 Run from the command line:
 
 `java -jar regex-c.jar input.re`
