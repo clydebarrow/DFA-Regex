@@ -28,6 +28,7 @@ main()
       # white space is stripped
 #you can define macros here to be expanded, e.g.
         digit =  [0-9\.]
+        hexdigit =  [0-9A-F]
 
 %rule
 # this is a regular expression
@@ -36,7 +37,8 @@ main()
 
 # this pattern always starts with a newline
 \n
-# when the newline is seen, perform an action. Actions must be enclosed in {} and start on a new line.
+# when the newline is seen, perform an action. Actions must be enclosed in {} and start on a new line, but may extend across
+# multiple lines.
     { ptr = buffer; }
 #next we expect one or more digits followed by a comma. Copying of the data into the buffer must be done by user code, it is not automatic
 (digit+ ','
@@ -51,7 +53,7 @@ hexdigit{4} \r
 # if another rule is defined here it will be treated as an alternate, i.e. the entire RE is (rule1)|(rule2)|(rule3) etc.
 ````
 
-#Invocation
+###Invocation
 Run from the command line:
 
 `java -jar regex-c.jar com.controlj.Rex input.re`
@@ -59,8 +61,9 @@ Run from the command line:
 The generated code will comprise a header file called `lex_<prefix>.h` and a C file `lex_<prefix>.c` where `<prefix>` is the value
 specified in the input file via `%prefix`
 
-#Syntax
+###RE Syntax
 
+TODO
 
 ### Use Case
 A complete example:
