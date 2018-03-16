@@ -56,7 +56,7 @@ hexdigit{4} \r
 ###Invocation
 Run from the command line:
 
-`java -jar regex-c.jar com.controlj.Rex input.re`
+`java -jar regex-c.jar input.re`
 
 The generated code will comprise a header file called `lex_<prefix>.h` and a C file `lex_<prefix>.c` where `<prefix>` is the value
 specified in the input file via `%prefix`
