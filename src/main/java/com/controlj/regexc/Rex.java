@@ -8,10 +8,7 @@ import com.controlj.regexc.util.Actions;
 import java.io.*;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,10 +23,12 @@ public class Rex {
     public static final String PREFIX = "%prefix";
     public static final String RULE = "%rule";
     public static final String NAMES = "%names";
+    public static final String ARGS = "%args";
+    public static final String STATEVAR = "%state";
+    private static String path;
     private final String source;
     private Actions actions = new Actions();
     private DFA dfa;
-    private String prefix;
     private LineNumberReader reader;
     private StringBuilder reBuilder;        // accumulate parts of the RE
     private List<String> rules = new ArrayList<>();
@@ -84,11 +83,11 @@ public class Rex {
     }
 
     public DFA getDfa() {
-        if(dfa == null) {
+        if (dfa == null) {
             StringBuilder builder = new StringBuilder();
             boolean first = true;
-            for(String rule : rules) {
-                if(!first)
+            for (String rule : rules) {
+                if (!first)
                     builder.append('|');
                 first = false;
                 builder.append('(');
@@ -101,10 +100,6 @@ public class Rex {
             dfa = new DFA(nfa.getStateList());
         }
         return dfa;
-    }
-
-    public String getPrefix() {
-        return prefix;
     }
 
     // add a line to the re.
@@ -172,33 +167,40 @@ public class Rex {
         reBuilder = new StringBuilder();
         String s;
         try {
-            StringBuilder sb = new StringBuilder();
             for (; ; ) {
                 s = reader.readLine();
                 if (s == null)
                     error("Unexpected EOF looking for header");
+                if (s.startsWith(STATEVAR)) {
+                    if (actions.getState() != null)
+                        error("Duplicate state");
+                    actions.setState("(" + s.substring(STATEVAR.length()).trim() + ")");
+                    continue;
+                }
+                if (s.startsWith(ARGS)) {
+                    if (actions.getArgs() != null)
+                        error("Duplicate args");
+                    actions.setArgs(s.substring(ARGS.length()).trim());
+                    continue;
+                }
                 if (s.startsWith(PREFIX)) {
-                    if (prefix != null)
+                    if (actions.getPrefix() != null)
                         error("Duplicate prefix");
-                    prefix = s.substring(PREFIX.length()).trim();
+                    actions.setPrefix(s.substring(PREFIX.length()).trim());
                     continue;
                 }
                 if (s.startsWith(NAMES) || s.startsWith(RULE)) {
                     break;
                 }
-                sb.append(s);
-                sb.append("\n");
+                actions.addHeader(s);
             }
-            sb.append('\n');
-            actions.setHeader(sb.toString());
-            sb.setLength(0);
             if (s.startsWith(NAMES)) {
                 for (; ; ) {
                     s = reader.readLine();
-                    if(s == null)
+                    if (s == null)
                         break;
                     s = s.trim();
-                    if(s.isEmpty())
+                    if (s.isEmpty())
                         continue;
                     if (s.startsWith(RULE))
                         break;
@@ -219,7 +221,7 @@ public class Rex {
                 else
                     addLine(s);
             }
-            if(reBuilder.length() != 0)
+            if (reBuilder.length() != 0)
                 addRule();
 
         } finally {
@@ -227,18 +229,45 @@ public class Rex {
         }
     }
 
+    static void usage() {
+        System.err.println("Usage: rex <input_file>");
+        System.exit(1);
+    }
+
     static public void main(String args[]) {
-        if(args.length == 0) {
-            System.err.println("Usage: rex <input_file>");
-            System.exit(1);
+        List<String> list = Arrays.asList(args);
+        String infile = null;
+        boolean verbose = false;
+        for (int i = 0; i != list.size(); i++) {
+            String s = list.get(i);
+            if (s.startsWith("-O")) {
+                path = s.substring(2);
+                continue;
+            }
+            if (s.equalsIgnoreCase("-v")) {
+                verbose = true;
+                continue;
+            }
+            if (infile != null) {
+                usage();
+            }
+            infile = s;
+        }
+        if (infile == null) {
+            usage();
         }
         try {
-            File inputFile = new File(args[0]);
+            File inputFile = new File(infile);
+            if (path == null)
+                path = inputFile.getParent();
+            if (path == null)
+                path = ".";
             InputStream stream = new FileInputStream(inputFile);
-            Rex rex = new Rex(args[0], stream);
+            Rex rex = new Rex(infile, stream);
             rex.read();
-            System.out.println(rex.getDfa().toString());
-            CCodeWriter writer = new CCodeWriter(rex.getDfa(), inputFile.getParentFile(), rex.getPrefix(), rex.getActions());
+            if (verbose)
+                System.out.println(rex.getDfa().toString());
+            CCodeWriter writer = new CCodeWriter(rex.getDfa(), new File(path), rex.getActions());
             writer.write();
             System.exit(0);
         } catch (IOException e) {

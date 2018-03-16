@@ -28,18 +28,21 @@ public class CCodeWriter {
     private String accept;
     private String contnue;
     private String fail;
+    private String state, args;
     private Actions actions;
     private BufferedWriter writer;
 
-    public CCodeWriter(DFA dfa, File path, String prefix, Actions actions) {
+    public CCodeWriter(DFA dfa, File path, Actions actions) {
         this.dfa = dfa;
         if (path == null)
             path = new File(".");
         this.path = path;
-        this.prefix = prefix;
+        this.prefix = actions.getPrefix();
         accept = prefix + "_ACCEPT";
         contnue = prefix + "_CONTINUE";
         fail = prefix + "_FAIL";
+        state = actions.getState();
+        args = actions.getArgs();
         this.actions = actions;
     }
 
@@ -61,10 +64,10 @@ public class CCodeWriter {
         if (set.getNext().isAccept())
             format("                    return %s;\n", accept);
         else {
-            if (nextId == thisId + 1)
-                format("                    ++%s_state; // = %s_STATE_%d;\n", prefix, prefix, nextId);
+            if (thisId != 0 && nextId == thisId + 1)
+                format("                    ++%s; // = %s_STATE_%d;\n", state, prefix, nextId);
             else
-                format("                    %s_state = %s_STATE_%d;\n", prefix, prefix, nextId);
+                format("                    %s = %s_STATE_%d;\n", state, prefix, nextId);
             format("                    return %s;\n", contnue);
         }
     }
@@ -73,7 +76,10 @@ public class CCodeWriter {
         if (state.isAccept())
             return;
         int thisId = state.getId();
-        format("        case %s_STATE_%d:\n", prefix, thisId);
+        if(thisId == 0)
+            format("        default: // %s_STATE_%d:\n", prefix, thisId);
+        else
+            format("        case %s_STATE_%d:\n", prefix, thisId);
         boolean first;
         for (TransitionSet set : state.getTransitionSets()) {
             // do ranges now for this transition target
@@ -133,15 +139,23 @@ public class CCodeWriter {
                 format("    %s_STATE_%d = %d,\n", prefix, state.getId(), state.getId());
         }
         format("} %s_state_t;\n", prefix);
-        format("extern %s_action_t %s_lex(unsigned char token);\n", prefix, prefix);
+        if(args == null)
+            args = "";
+        else
+            args = ", " + args;
+        format("extern %s_action_t %s_lex(unsigned char token %s);\n", prefix, prefix, args);
         format("#define %s_reset() (%s_state = %s_STATE_%d)\n", prefix, prefix, prefix, dfa.getInitState());
         writer.close();
         writer = new BufferedWriter(new FileWriter(new File(path, filename + ".c")));
-        format("#include \"%s\"\n\n", filename + ".h");
-        format("static %s_state_t %s_state;\n\n", prefix, prefix);
         format("%s\n", actions.getHeader());
-        format("%s_action_t %s_lex(unsigned char token) {\n", prefix, prefix);
-        format("    switch(%s_state) {\n", prefix);
+        format("#include \"%s\"\n\n", filename + ".h");
+        if(state == null) {
+            state = prefix + "_state";
+            format("static %s_state_t %s;\n\n", prefix, state);
+        }
+        format("%s\n", actions.getBody());
+        format("%s_action_t %s_lex(unsigned char token %s) {\n", prefix, prefix, args);
+        format("    switch(%s) {\n", state);
         for (DFAState state : dfa.getDfaStates()) {
             putSwitch(state);
         }

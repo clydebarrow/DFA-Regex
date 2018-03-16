@@ -100,8 +100,9 @@ public class RegexTest {
         actions.add("*ptr = 0; fprintf(stderr, \"got element %s\\n\", buffer); ptr = buffer;");
         actions.add("*ptr = 0; fprintf(stderr, \"got checksum %s\\n\", buffer);");
         actions.add("fprintf(stderr, \"action complete\\n\");");
-        actions.setHeader(HEADER);
-        CCodeWriter codeWriter = new CCodeWriter(dfa, new File(TEMPPATH), "test", actions);
+        actions.addHeader(HEADER);
+        actions.setPrefix("test");
+        CCodeWriter codeWriter = new CCodeWriter(dfa, new File(TEMPPATH), actions);
         try {
 
             File aout = new File(TEMPPATH + "/a.out");
