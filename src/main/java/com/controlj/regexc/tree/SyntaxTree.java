@@ -26,7 +26,7 @@ public class SyntaxTree {
         this.names = names;
         root = null;
         this.regex = regex;
-        if(regex.isEmpty())
+        if (regex.isEmpty())
             throw new InvalidSyntaxException("empty regex");
         nodeList = new ArrayList<>();
         itemTerminated = false;
@@ -185,29 +185,42 @@ public class SyntaxTree {
                     } else {
                         isComplementarySet = false;
                     }
-                    do {
-                        ch = queue.remove();
-                        if (ch == '\\')
-                            all.addAll(CommonSets.interpretEscape(queue));
-                        else if (ch == '.')
-                            all.addAll(CommonSets.dotCollection());
-                        else if (queue.element() == '-') {
-                            queue.remove();
-                            if (queue.element() == ']') {
-                                all.add(ch);
-                                all.add('-');
-                            } else {
-                                char nch = queue.remove();
-                                if (nch < ch)
-                                    error("Backward character range", queue);
-                                do {
-                                    all.add(ch);
-                                } while (ch++ != nch);
+                    if (queue.element() != ']')
+                        do {
+                            ch = queue.remove();
+                            if (ch == '.')
+                                all.addAll(CommonSets.dotCollection());
+                            if (ch == '\\') {
+                                List<Character> set = (CommonSets.interpretEscape(queue));
+                                if(set.size() > 1) {
+                                    all.addAll(set);
+                                    continue;
+                                }
+                                ch = set.get(0);
                             }
-                        } else {
-                            all.add(ch);
-                        }
-                    } while(queue.element() != ']');
+                            if (queue.element() == '-') {
+                                queue.remove();
+                                if (queue.element() == ']') {
+                                    all.add(ch);
+                                    all.add('-');
+                                } else {
+                                    char nch = queue.remove();
+                                    if (nch == '\\') {
+                                        List<Character> set = (CommonSets.interpretEscape(queue));
+                                        if(set.size() != 1)
+                                            error("Range should specify single chars", queue);
+                                        nch = set.get(0);
+                                    }
+                                    if (nch < ch)
+                                        error("Backward character range", queue);
+                                    do {
+                                        all.add(ch);
+                                    } while (ch++ != nch);
+                                }
+                            } else {
+                                all.add(ch);
+                            }
+                        } while (queue.element() != ']');
                     queue.remove();        // remove ]
                     char[] chSet = CommonSets.minimum(CommonSets.listToArray(all));
                     if (isComplementarySet) {

@@ -200,7 +200,7 @@ public class Rex {
                     if (s == null)
                         break;
                     s = s.trim();
-                    if (s.isEmpty())
+                    if (s.isEmpty() || s.startsWith("#"))
                         continue;
                     if (s.startsWith(RULE))
                         break;

@@ -58,10 +58,15 @@ hexdigit{4} \r
 You can download a compiled jar from [here](https://github.com/clydebarrow/Regex-to-C/releases/download/v1.0/regex-c.jar). 
 Run from the command line:
 
-`java -jar regex-c.jar input.re`
+`java -jar regex-c.jar [options] input.re`
 
 The generated code will comprise a header file called `lex_<prefix>.h` and a C file `lex_<prefix>.c` where `<prefix>` is the value
 specified in the input file via `%prefix`
+
+Allowable options are:
++ `-O<destdir>` Specify directory for generated files
++ `-v` Dump state table to stdout
+
 
 ### RE Syntax
 

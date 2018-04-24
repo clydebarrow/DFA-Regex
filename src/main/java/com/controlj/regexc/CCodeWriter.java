@@ -76,7 +76,7 @@ public class CCodeWriter {
         if (state.isAccept())
             return;
         int thisId = state.getId();
-        if(thisId == 0)
+        if (thisId == 0)
             format("        default: // %s_STATE_%d:\n", prefix, thisId);
         else
             format("        case %s_STATE_%d:\n", prefix, thisId);
@@ -85,19 +85,24 @@ public class CCodeWriter {
             // do ranges now for this transition target
             List<TransitionSet.Range> ranges = set.getRanges();
             if (!ranges.isEmpty()) {
-                first = true;
-                format("            if(");
-                for (TransitionSet.Range range : ranges) {
-                    if (!first)
-                        format("||\n                  ");
-                    first = false;
-                    format("token >= %s && token <= %s", charRep(range.first), charRep(range.last));
+                TransitionSet.Range r1 = ranges.iterator().next();
+                if (!(ranges.size() == 1 && r1.first == 0 && r1.last == 255)) {
+                    first = true;
+                    for (TransitionSet.Range range: ranges) {
+                        if (first)
+                            format("            if(");
+                        else
+                            format("||\n                  ");
+                        first = false;
+                        format("token >= %s && token <= %s", charRep(range.first), charRep(range.last));
+                    }
+                    format(")");
                 }
-                format(") {\n");
+                format("            {\n");
                 putCode(set, thisId);
                 format("            }\n");
             }
-        }
+            }
         // now do any switching necessary
         first = true;
         for (TransitionSet set : state.getTransitionSets()) {
@@ -139,7 +144,7 @@ public class CCodeWriter {
                 format("    %s_STATE_%d = %d,\n", prefix, state.getId(), state.getId());
         }
         format("} %s_state_t;\n", prefix);
-        if(args == null)
+        if (args == null)
             args = "";
         else
             args = ", " + args;
@@ -149,7 +154,7 @@ public class CCodeWriter {
         writer = new BufferedWriter(new FileWriter(new File(path, filename + ".c")));
         format("%s\n", actions.getHeader());
         format("#include \"%s\"\n\n", filename + ".h");
-        if(state == null) {
+        if (state == null) {
             state = prefix + "_state";
             format("static %s_state_t %s;\n\n", prefix, state);
         }

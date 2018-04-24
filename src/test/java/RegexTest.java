@@ -80,10 +80,11 @@ public class RegexTest {
     @Test
     public void testProcessing() {
         final long pre = System.currentTimeMillis();
-        String regex = "\\n\uE000(('*' | digit+)\",\"\uE001)* hexdigit{4}\uE002\\r\uE003";
+        String regex = "\\n\uE000(('*' | digit+)\",\"\uE001)* byte hexdigit{4}\uE002\\r\uE003";
         Map<String, String> words = new HashMap<>();
         words.put("digit", "[0-9\\.]");
         words.put("hexdigit", "[A-F0-9]");
+        words.put("byte", "[\\x00-\\xFF]");
         SyntaxTree tree = new SyntaxTree(regex, words);
         Node root = tree.getRoot();
         System.out.println("For regex: " + regex);

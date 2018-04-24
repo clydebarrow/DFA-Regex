@@ -151,17 +151,13 @@ public class CommonSets {
     }
 
     private static boolean[] emptyBook() {
-        boolean[] book = new boolean[ENCODING_LENGTH];
-        for (int i = 0; i < book.length; i++) {
-            book[i] = false;
-        }
-        return book;
+        return new boolean[ENCODING_LENGTH];
     }
 
     private static char[] bookToSet(boolean[] book, boolean persistedFlag) {
         char[] newSet = new char[ENCODING_LENGTH];
         int i = 0;
-        for (char j = 0; j < book.length; j++) {
+        for (char j = 0; j != book.length; j++) {
             boolean e = book[j];
             if (e == persistedFlag) {
                 newSet[i++] = j;
