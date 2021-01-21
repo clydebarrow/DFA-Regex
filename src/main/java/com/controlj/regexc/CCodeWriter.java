@@ -51,6 +51,8 @@ public class CCodeWriter {
     }
 
     private static String charRep(char val) {
+        if (val == '\\')
+            return "'\\\\'";
         if (val < 0x20 || val > 0x7E)
             return String.format("0x%02x", (int) val);
         return "'" + val + "'";
@@ -88,7 +90,7 @@ public class CCodeWriter {
                 TransitionSet.Range r1 = ranges.iterator().next();
                 if (!(ranges.size() == 1 && r1.first == 0 && r1.last == 255)) {
                     first = true;
-                    for (TransitionSet.Range range: ranges) {
+                    for (TransitionSet.Range range : ranges) {
                         if (first)
                             format("            if(");
                         else
@@ -102,34 +104,42 @@ public class CCodeWriter {
                 putCode(set, thisId);
                 format("            }\n");
             }
-            }
+        }
         // now do any switching necessary
         first = true;
-        for (TransitionSet set : state.getTransitionSets()) {
-            int cnt = 0;
-            for (char c : set.getPoints()) {
-                if (first)
-                    format("            switch(token) {");
-                first = false;
-                if ((cnt % 5) == 0)
-                    format("\n                ");
-                format(" case %s: ", charRep(c));
-                cnt++;
+        List<TransitionSet> sets = state.getTransitionSets();
+        if (sets.size() == 1 && sets.get(0).getPoints().size() == 1) {
+            TransitionSet set = sets.get(0);
+            format("            if(token == %s) {\n", charRep(set.getPoints().get(0)));
+            putCode(set, thisId);
+            format("            }\n");
+            format("            return %s;\n", fail);
+        } else {
+            for (TransitionSet set : state.getTransitionSets()) {
+                int cnt = 0;
+                for (char c : set.getPoints()) {
+                    if (first)
+                        format("            switch(token) {");
+                    first = false;
+                    if ((cnt % 5) == 0)
+                        format("\n                ");
+                    format(" case %s: ", charRep(c));
+                    cnt++;
+                }
+                if (!first) {
+                    format("\n");
+                    putCode(set, thisId);
+                }
             }
             if (!first) {
-                format("\n");
-                putCode(set, thisId);
-            }
-        }
-        if (state.getTransitionMap().size() != CommonSets.ENCODING_LENGTH) {
-            if (!first) {
-                format("                default:\n");
-                format("                    break;\n");
+                if (state.getTransitionMap().size() != CommonSets.ENCODING_LENGTH) {
+                    format("                default:\n");
+                    format("                    return %s;\n", fail);
+                }
                 format("            }\n");
             }
-            format("            return %s;\n", fail);
+            format("\n");
         }
-        format("\n");
     }
 
     public void write() throws IOException {

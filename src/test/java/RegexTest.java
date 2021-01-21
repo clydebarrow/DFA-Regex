@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  */
 public class RegexTest {
 
-    private static final String HEADER =
+    private static final String HEADER1 =
             "#include    <stdio.h>\n" +
                     "#include    <stdlib.h>\n" +
                     "\n" +
@@ -28,9 +28,9 @@ public class RegexTest {
                     "static unsigned char * ptr;\n" +
                     "static unsigned char buffer[BUFLEN];\n" +
                     "\n" +
-                    "static char * data = \"\\n1234,*,3456,ABDE\\r\\n5,6,*,AB12\\r\";\n" +
-                    "\n" +
-                    "static test_action_t addChar(char c) {\n" +
+                    "static char * data = \"\\n1234,*,3456,ABDE\\r\\n5,6,*,AB12\\r\";\n";
+    private static final String HEADER2 =
+            "static test_action_t addChar(char c) {\n" +
                     "    test_state_t prev = test_state;\n" +
                     "    if(ptr >= buffer && ptr < buffer+BUFLEN)\n" +
                     "        *ptr++ = c;\n" +
@@ -76,6 +76,7 @@ public class RegexTest {
         Assert.assertEquals(0, process.exitValue());
 
     }
+
     //"([ab]([^cd]*\\w+(abc|abcd){2,5})+)?.*"
     @Test
     public void testProcessing() {
@@ -101,13 +102,14 @@ public class RegexTest {
         actions.add("*ptr = 0; fprintf(stderr, \"got element %s\\n\", buffer); ptr = buffer;");
         actions.add("*ptr = 0; fprintf(stderr, \"got checksum %s\\n\", buffer);");
         actions.add("fprintf(stderr, \"action complete\\n\");");
-        actions.addHeader(HEADER);
+        actions.addHeader(HEADER1);
+        actions.addHeader(HEADER2);
         actions.setPrefix("test");
         CCodeWriter codeWriter = new CCodeWriter(dfa, new File(TEMPPATH), actions);
         try {
 
             File aout = new File(TEMPPATH + "/a.out");
-            if(aout.exists())
+            if (aout.exists())
                 //noinspection ResultOfMethodCallIgnored
                 aout.delete();
             codeWriter.write();
